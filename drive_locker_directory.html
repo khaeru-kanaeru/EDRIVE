@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drive Locker & Directory</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at top left, #eff6ff 0%, #f8fafc 45%, #f1f5f9 100%);
+    }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Hidden File Input untuk Foto Profil Loker -->
+  <input type="file" id="coverPhotoInput" accept="image/*" class="hidden" onchange="handleCoverPhotoSelected(event)" />
+
+  <!-- Top Navbar -->
+  <header class="bg-white/85 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <!-- Brand -->
+      <div class="flex items-center gap-3 cursor-pointer shrink-0" onclick="resetToRoot()">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-sm shadow-blue-600/20">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        </div>
+        <div class="hidden sm:block">
+          <h1 class="font-bold text-slate-900 text-sm leading-tight tracking-tight">Drive Locker</h1>
+          <p class="text-[11px] text-slate-400">Google Drive Storage Gateway</p>
+        </div>
+      </div>
+
+      <!-- Search Input -->
+      <div class="flex-1 max-w-md">
+        <div class="relative">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            id="searchInput"
+            oninput="applyViewAndSort()"
+            placeholder="Cari loker, folder, atau file..."
+            class="w-full pl-10 pr-4 py-2 bg-slate-100/90 hover:bg-slate-200/70 focus:bg-white border border-transparent focus:border-blue-500 rounded-xl text-sm outline-none transition"
+          />
+        </div>
+      </div>
+
+      <!-- Top Actions -->
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- Di halaman depan: "+ Loker Baru", di dalam loker: "+ Folder Baru" untuk separasi -->
+        <button
+          onclick="openNewFolderModal()"
+          class="px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+        >
+          <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span id="newFolderBtnText">Loker Baru</span>
+        </button>
+
+        <!-- Hanya tampil saat di dalam loker/subfolder (bukan halaman depan) -->
+        <label
+          id="uploadBtnLabel"
+          class="hidden px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl items-center gap-1.5 cursor-pointer shadow-sm shadow-blue-600/20 transition"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span>Upload File</span>
+          <input type="file" id="fileInput" multiple class="hidden" onchange="handleFileInput(event)" />
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main
+    id="dropZone"
+    class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 relative"
+  >
+    <!-- Drop Overlay (hanya aktif saat di dalam loker/subfolder) -->
+    <div
+      id="dropOverlay"
+      class="hidden fixed inset-0 z-40 bg-blue-600/10 backdrop-blur-[2px] border-2 border-dashed border-blue-500 flex items-center justify-center pointer-events-none"
+    >
+      <div class="bg-white px-6 py-5 rounded-2xl shadow-xl border border-blue-100 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-2.5">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+        </div>
+        <p class="text-sm font-semibold text-slate-900">Lepaskan file untuk mengupload ke folder ini</p>
+        <p class="text-xs text-slate-400 mt-0.5">Langsung tersimpan ke Google Drive</p>
+      </div>
+    </div>
+
+    <!-- Toolbar: Breadcrumb + Sort Dropdown + Grid/List Switch -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <nav id="breadcrumb" class="flex items-center flex-wrap gap-1.5 text-sm font-medium text-slate-600"></nav>
+
+      <div class="flex items-center gap-2">
+        <!-- Sort / Filter Dropdown -->
+        <select
+          id="sortSelect"
+          onchange="applyViewAndSort()"
+          class="bg-white border border-slate-200 hover:border-slate-300 text-xs sm:text-sm font-medium text-slate-700 rounded-xl px-3 py-2 outline-none focus:border-blue-500 shadow-2xs cursor-pointer transition"
+        >
+          <option value="name_asc">Urutkan: Nama (A–Z)</option>
+          <option value="name_desc">Urutkan: Nama (Z–A)</option>
+          <option value="date_desc">Terakhir Diubah (Terbaru)</option>
+          <option value="date_asc">Terakhir Diubah (Terlama)</option>
+          <option value="size_desc">Ukuran File (Terbesar)</option>
+          <option value="size_asc">Ukuran File (Terkecil)</option>
+        </select>
+
+        <!-- Refresh -->
+        <button
+          onclick="loadDirectory(currentFolderId, null, true)"
+          title="Muat ulang"
+          class="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:border-slate-300 rounded-xl shadow-2xs transition cursor-pointer"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+
+        <!-- Grid / List Switch (hanya tampil saat di dalam loker) -->
+        <div id="viewSwitcher" class="bg-slate-200/80 p-1 rounded-xl flex items-center">
+          <button
+            id="btnGrid"
+            onclick="setViewMode('grid')"
+            class="px-3 py-1 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-2xs transition cursor-pointer"
+          >
+            Grid
+          </button>
+          <button
+            id="btnList"
+            onclick="setViewMode('list')"
+            class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer"
+          >
+            List
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loader" class="hidden py-24 flex flex-col items-center justify-center text-slate-400">
+      <div class="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+      <p class="text-sm font-medium text-slate-600" id="loaderText">Memuat data Google Drive...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden py-20 text-center bg-white/80 rounded-2xl border border-dashed border-slate-300">
+      <p class="text-slate-600 text-sm font-semibold" id="emptyTitle">Belum ada loker</p>
+      <p class="text-slate-400 text-xs mt-1" id="emptySubtitle">Klik "+ Loker Baru" di atas untuk membuat loker pertama.</p>
+    </div>
+
+    <!-- Main Directory Sections -->
+    <div id="contentArea" class="space-y-8">
+      <section id="folderSection" class="hidden">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400" id="folderSectionTitle">Daftar Loker</h2>
+          <span class="text-xs text-slate-400 tabular-nums" id="folderCountBadge"></span>
+        </div>
+        <div id="folderContainer"></div>
+      </section>
+
+      <section id="fileSection" class="hidden">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">File</h2>
+          <span class="text-xs text-slate-400 tabular-nums" id="fileCountBadge"></span>
+        </div>
+        <div id="fileContainer"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Custom Modal Dialog -->
+  <div id="customModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+      <div>
+        <h3 id="modalTitle" class="text-base font-bold text-slate-900">Judul Modal</h3>
+        <p id="modalMessage" class="text-xs text-slate-500 mt-1 leading-relaxed"></p>
+      </div>
+      <div id="modalInputWrapper" class="hidden space-y-3">
+        <input
+          type="text"
+          id="modalInput"
+          class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm outline-none transition"
+          placeholder="Ketik di sini..."
+        />
+        <div id="modalSecondInputWrapper" class="hidden">
+          <label id="modalSecondLabel" class="block text-[11px] font-semibold text-slate-600 mb-1"></label>
+          <input
+            type="password"
+            id="modalSecondInput"
+            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm outline-none transition"
+            placeholder="Masukkan sandi baru..."
+          />
+        </div>
+      </div>
+      <div id="modalExtraActionWrapper" class="hidden pt-1">
+        <button
+          id="modalExtraActionBtn"
+          type="button"
+          class="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+        ></button>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button
+          id="modalCancelBtn"
+          class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+        >
+          Batal
+        </button>
+        <button
+          id="modalConfirmBtn"
+          class="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition cursor-pointer"
+        >
+          Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Bottom-Right Transfer Progress Panel -->
+  <div
+    id="transferPanel"
+    class="hidden fixed bottom-5 right-5 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-50"
+  >
+    <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-xs font-semibold" id="transferTitle">Aktivitas Transfer</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button onclick="toggleTransferBody()" class="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded cursor-pointer" title="Minimize">_</button>
+        <button onclick="closeTransferPanel()" class="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded cursor-pointer" title="Tutup">✕</button>
+      </div>
+    </div>
+    <div id="transferList" class="max-h-60 overflow-y-auto divide-y divide-slate-100 p-2 space-y-1"></div>
+  </div>
+
+  <!-- Toast -->
+  <div
+    id="toast"
+    class="fixed bottom-5 left-5 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg transform translate-y-24 opacity-0 transition-all duration-300 z-50"
+  ></div>
+
+  <script>
+    // =====================================================
+    // KONFIGURASI: URL WEB APP GOOGLE APPS SCRIPT
+    // =====================================================
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwolJ4atteDF6g8Qu4v1Xu6ROZ-bUy9xuFxkxXiL19nefamBRUQMreBQZRvAMlYNCLM/exec";
+
+    let currentFolderId = "";
+    let isRootView = true;
+    let breadcrumbStack = [];
+    let viewMode = "grid";
+    let rawData = { folders: [], files: [] };
+    let unlockedPasswords = {};
+    let pendingCoverLockerId = null;
+    let pendingCoverLockerName = "";
+
+    window.addEventListener("DOMContentLoaded", () => {
+      setupDragAndDrop();
+      loadDirectory("");
+    });
+
+    function showCustomDialog({
+      title,
+      message = "",
+      showInput = false,
+      inputType = "text",
+      inputPlaceholder = "Ketik nama di sini...",
+      defaultValue = "",
+      showSecondInput = false,
+      secondLabel = "",
+      secondPlaceholder = "",
+      extraActionText = "",
+      confirmText = "OK",
+      isDanger = false
+    }) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById("customModal");
+        const titleEl = document.getElementById("modalTitle");
+        const msgEl = document.getElementById("modalMessage");
+        const inputWrap = document.getElementById("modalInputWrapper");
+        const inputEl = document.getElementById("modalInput");
+        const secondWrap = document.getElementById("modalSecondInputWrapper");
+        const secondLabelEl = document.getElementById("modalSecondLabel");
+        const secondInputEl = document.getElementById("modalSecondInput");
+        const extraWrap = document.getElementById("modalExtraActionWrapper");
+        const extraBtn = document.getElementById("modalExtraActionBtn");
+        const cancelBtn = document.getElementById("modalCancelBtn");
+        const confirmBtn = document.getElementById("modalConfirmBtn");
+
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+        msgEl.classList.toggle("hidden", !message);
+
+        if (showInput) {
+          inputWrap.classList.remove("hidden");
+          inputEl.type = inputType;
+          inputEl.placeholder = inputPlaceholder;
+          inputEl.value = defaultValue;
+        } else {
+          inputWrap.classList.add("hidden");
+          inputEl.value = "";
+        }
+
+        if (showSecondInput) {
+          secondWrap.classList.remove("hidden");
+          secondLabelEl.textContent = secondLabel;
+          secondInputEl.placeholder = secondPlaceholder;
+          secondInputEl.value = "";
+        } else {
+          secondWrap.classList.add("hidden");
+          secondInputEl.value = "";
+        }
+
+        if (extraActionText) {
+          extraWrap.classList.remove("hidden");
+          extraBtn.textContent = extraActionText;
+        } else {
+          extraWrap.classList.add("hidden");
+          extraBtn.textContent = "";
+        }
+
+        confirmBtn.textContent = confirmText;
+        confirmBtn.className = isDanger
+          ? "px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm transition cursor-pointer"
+          : "px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition cursor-pointer";
+
+        modal.classList.remove("hidden");
+        if (showInput) {
+          setTimeout(() => {
+            inputEl.focus();
+            if (defaultValue) inputEl.select();
+          }, 50);
+        }
+
+        const cleanup = (result) => {
+          modal.classList.add("hidden");
+          cancelBtn.onclick = null;
+          confirmBtn.onclick = null;
+          extraBtn.onclick = null;
+          inputEl.onkeydown = null;
+          secondInputEl.onkeydown = null;
+          resolve(result);
+        };
+
+        const submitResult = () => {
+          if (!showInput) return cleanup(true);
+          if (showSecondInput) {
+            return cleanup({ primary: inputEl.value, secondary: secondInputEl.value, removeLock: false });
+          }
+          return cleanup(inputEl.value);
+        };
+
+        cancelBtn.onclick = () => cleanup(null);
+        confirmBtn.onclick = submitResult;
+        extraBtn.onclick = () => cleanup({ primary: inputEl.value, secondary: "", removeLock: true });
+        inputEl.onkeydown = (e) => {
+          if (e.key === "Enter") {
+            if (showSecondInput) secondInputEl.focus();
+            else submitResult();
+          }
+          if (e.key === "Escape") cleanup(null);
+        };
+        secondInputEl.onkeydown = (e) => {
+          if (e.key === "Enter") submitResult();
+          if (e.key === "Escape") cleanup(null);
+        };
+      });
+    }
+
+    async function handleOpenLocker(lockerId, lockerName, isLocked) {
+      let suppliedPassword = unlockedPasswords[lockerId] || "";
+
+      if (isLocked && !suppliedPassword) {
+        const entered = await showCustomDialog({
+          title: `Loker "${lockerName}" Terkunci`,
+          message: "Masukkan sandi loker atau kode rahasia untuk membuka loker ini.",
+          showInput: true,
+          inputType: "password",
+          inputPlaceholder: "Masukkan sandi loker...",
+          confirmText: "Buka Loker"
+        });
+        if (entered === null) return;
+        suppliedPassword = String(entered).trim();
+        if (!suppliedPassword) {
+          showToast("Sandi tidak boleh kosong.");
+          return;
+        }
+      }
+
+      await loadDirectory(lockerId, lockerName, false, suppliedPassword);
+    }
+
+    async function loadDirectory(folderId, folderName = null, isBreadcrumbClick = false, suppliedPassword = "") {
+      const effectivePassword = suppliedPassword || (folderId ? unlockedPasswords[folderId] || "" : "");
+      setLoading(true, "Menghubungkan ke Google Drive...");
+      document.getElementById("searchInput").value = "";
+
+      try {
+        const url = `${GAS_WEB_APP_URL}?action=list&folderId=${encodeURIComponent(folderId)}&password=${encodeURIComponent(effectivePassword)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.status === "locked") {
+          if (folderId) delete unlockedPasswords[folderId];
+          setLoading(false);
+          showToast(data.message || "Sandi loker salah!");
+          return;
+        }
+
+        if (data.status !== "success") throw new Error(data.message);
+
+        if (folderId && effectivePassword) {
+          unlockedPasswords[folderId] = effectivePassword;
+        }
+
+        currentFolderId = data.currentFolder.id;
+        isRootView = Boolean(data.isRoot);
+        rawData = { folders: data.folders || [], files: data.files || [] };
+
+        if (breadcrumbStack.length === 0) {
+          breadcrumbStack.push({ id: currentFolderId, name: data.currentFolder.name });
+        } else if (!isBreadcrumbClick && folderName) {
+          breadcrumbStack.push({ id: currentFolderId, name: folderName });
+        }
+
+        syncModeUI();
+        renderBreadcrumb();
+        applyViewAndSort();
+      } catch (err) {
+        showToast("Gagal memuat: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function syncModeUI() {
+      const uploadBtn = document.getElementById("uploadBtnLabel");
+      const viewSwitcher = document.getElementById("viewSwitcher");
+      const newFolderBtnText = document.getElementById("newFolderBtnText");
+      const folderSectionTitle = document.getElementById("folderSectionTitle");
+
+      if (isRootView) {
+        // Loker hanya di tampilan depan (selalu grid 1:1)
+        viewMode = "grid";
+        uploadBtn.classList.add("hidden");
+        uploadBtn.classList.remove("flex");
+        viewSwitcher.classList.add("hidden");
+        newFolderBtnText.textContent = "Loker Baru";
+        folderSectionTitle.textContent = "Loker Pribadi";
+      } else {
+        // Di dalam loker: bisa buat folder separasi & upload file
+        uploadBtn.classList.remove("hidden");
+        uploadBtn.classList.add("flex");
+        viewSwitcher.classList.remove("hidden");
+        newFolderBtnText.textContent = "Folder Baru";
+        folderSectionTitle.textContent = "Folder";
+      }
+    }
+
+    function resetToRoot() {
+      breadcrumbStack = [];
+      loadDirectory("");
+    }
+
+    function navigateBreadcrumb(index) {
+      const target = breadcrumbStack[index];
+      breadcrumbStack = breadcrumbStack.slice(0, index + 1);
+      loadDirectory(target.id, target.name, true);
+    }
+
+    function renderBreadcrumb() {
+      const nav = document.getElementById("breadcrumb");
+      nav.innerHTML = breadcrumbStack.map((item, idx) => {
+        const isLast = idx === breadcrumbStack.length - 1;
+        return `
+          <button
+            onclick="navigateBreadcrumb(${idx})"
+            class="px-2.5 py-1 rounded-xl transition cursor-pointer ${
+              isLast
+                ? "text-slate-900 font-semibold bg-white border border-slate-200/90 shadow-2xs"
+                : "text-slate-500 hover:bg-white/70 hover:text-slate-800"
+            }"
+          >
+            ${escapeHtml(item.name)}
+          </button>
+          ${!isLast ? '<span class="text-slate-300">/</span>' : ""}
+        `;
+      }).join("");
+    }
+
+    function setViewMode(mode) {
+      if (isRootView) return;
+      viewMode = mode;
+      document.getElementById("btnGrid").className = mode === "grid"
+        ? "px-3 py-1 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-2xs transition cursor-pointer"
+        : "px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer";
+      document.getElementById("btnList").className = mode === "list"
+        ? "px-3 py-1 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-2xs transition cursor-pointer"
+        : "px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer";
+      applyViewAndSort();
+    }
+
+    function sortList(items, sortKey, isFile = false) {
+      const arr = [...items];
+      switch (sortKey) {
+        case "name_asc":
+          return arr.sort((a, b) => a.name.localeCompare(b.name));
+        case "name_desc":
+          return arr.sort((a, b) => b.name.localeCompare(a.name));
+        case "date_desc":
+          return arr.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        case "date_asc":
+          return arr.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        case "size_desc":
+          return isFile ? arr.sort((a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0)) : arr;
+        case "size_asc":
+          return isFile ? arr.sort((a, b) => (a.sizeBytes || 0) - (b.sizeBytes || 0)) : arr;
+        default:
+          return arr;
+      }
+    }
+
+    function applyViewAndSort() {
+      const q = document.getElementById("searchInput").value.toLowerCase().trim();
+      const sortKey = document.getElementById("sortSelect").value;
+
+      const filteredFolders = sortList(
+        rawData.folders.filter(f => f.name.toLowerCase().includes(q)),
+        sortKey,
+        false
+      );
+      const filteredFiles = sortList(
+        isRootView ? [] : rawData.files.filter(f => f.name.toLowerCase().includes(q)),
+        sortKey,
+        true
+      );
+
+      renderItems(filteredFolders, filteredFiles);
+    }
+
+    function renderItems(folders, files) {
+      const emptyState = document.getElementById("emptyState");
+      const emptyTitle = document.getElementById("emptyTitle");
+      const emptySubtitle = document.getElementById("emptySubtitle");
+      const folderSection = document.getElementById("folderSection");
+      const fileSection = document.getElementById("fileSection");
+      const folderContainer = document.getElementById("folderContainer");
+      const fileContainer = document.getElementById("fileContainer");
+
+      if (folders.length === 0 && files.length === 0) {
+        emptyState.classList.remove("hidden");
+        folderSection.classList.add("hidden");
+        fileSection.classList.add("hidden");
+        emptyTitle.textContent = isRootView ? "Belum ada loker" : "Direktori ini masih kosong";
+        emptySubtitle.textContent = isRootView
+          ? "Klik \"Loker Baru\" di atas untuk membuat loker."
+          : "Buat folder separasi atau upload file ke dalam direktori ini.";
+        return;
+      }
+      emptyState.classList.add("hidden");
+
+      // Render Loker (di halaman depan) ATAU Folder Separasi (di dalam loker)
+      if (folders.length > 0) {
+        folderSection.classList.remove("hidden");
+        document.getElementById("folderCountBadge").textContent = `${folders.length} ${isRootView ? "loker" : "folder"}`;
+
+        if (isRootView) {
+          // TAMPILAN LOKER (HANYA DI DEPAN) - Seluruh kotak bisa diklik + Foto Profil + Kunci Sandi
+          folderContainer.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4";
+          folderContainer.innerHTML = folders.map(f => {
+            const safeNameAttr = escapeHtml(f.name);
+            const safeJsName = escapeJsString(f.name);
+            const hasCover = Boolean(f.coverUrl);
+            const isLocked = Boolean(f.isLocked);
+
+            return `
+              <div
+                onclick="handleOpenLocker('${f.id}', '${safeJsName}', ${isLocked})"
+                class="group aspect-square bg-white rounded-2xl border border-slate-200/90 hover:border-blue-500 hover:shadow-lg overflow-hidden flex flex-col justify-between transition cursor-pointer relative select-none"
+              >
+                <!-- Background Foto Profil Loker (Jika Ada) -->
+                ${hasCover
+                  ? `<img
+                       src="${f.coverUrl}"
+                       alt="${safeNameAttr}"
+                       class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                       onerror="this.style.display='none'; this.nextElementSibling.style.display='none';"
+                     />
+                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/25 to-slate-900/20"></div>`
+                  : ""
+                }
+
+                <!-- Top Bar: Ikon Loker + Tombol Aksi (Kunci, Upload Foto, Rename, Hapus) -->
+                <div class="relative z-10 p-3.5 flex items-start justify-between gap-1">
+                  <div class="w-10 h-10 rounded-xl ${hasCover ? "bg-white/20 backdrop-blur-md text-white border border-white/25" : "bg-indigo-50 text-indigo-600"} flex items-center justify-center group-hover:scale-105 transition relative">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
+                    ${isLocked
+                      ? `<span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-xs" title="Loker Terkunci">
+                           <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                         </span>`
+                      : ""
+                    }
+                  </div>
+
+                  <div
+                    onclick="event.stopPropagation()"
+                    class="flex items-center gap-0.5 ${hasCover ? "bg-slate-900/60 backdrop-blur-md border border-white/15" : "bg-slate-100/90"} rounded-xl p-1 opacity-95 sm:opacity-0 sm:group-hover:opacity-100 transition"
+                  >
+                    <button
+                      onclick="manageLockerLock('${f.id}', '${safeJsName}', ${isLocked})"
+                      class="p-1.5 ${isLocked ? "text-amber-400" : (hasCover ? "text-white hover:bg-white/20" : "text-slate-600 hover:text-amber-600 hover:bg-white")} rounded-lg transition cursor-pointer"
+                      title="${isLocked ? "Ubah / Hapus Sandi Loker" : "Kunci Loker dengan Sandi"}"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </button>
+                    <button
+                      onclick="triggerCoverUpload('${f.id}', '${safeJsName}')"
+                      class="p-1.5 ${hasCover ? "text-white hover:bg-white/20" : "text-slate-600 hover:text-indigo-600 hover:bg-white"} rounded-lg transition cursor-pointer"
+                      title="Unggah Foto Profil Loker"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </button>
+                    <button
+                      onclick="renameItem('folder', '${f.id}', '${safeJsName}')"
+                      class="p-1.5 ${hasCover ? "text-white hover:bg-white/20" : "text-slate-600 hover:text-blue-600 hover:bg-white"} rounded-lg transition cursor-pointer"
+                      title="Rename Loker"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button
+                      onclick="deleteItem('folder', '${f.id}', '${safeJsName}')"
+                      class="p-1.5 ${hasCover ? "text-rose-200 hover:bg-rose-500/40" : "text-slate-600 hover:text-rose-600 hover:bg-white"} rounded-lg transition cursor-pointer"
+                      title="Pindahkan ke Recycle Bin"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Bottom Info Loker -->
+                <div class="relative z-10 p-4 mt-auto">
+                  <div class="flex items-center gap-1.5 mb-1.5">
+                    <span class="inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      hasCover ? "bg-white/20 text-white backdrop-blur-xs" : "bg-slate-100 text-slate-500"
+                    }">
+                      Loker
+                    </span>
+                    ${isLocked
+                      ? `<span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/90 text-white">
+                           Terkunci
+                         </span>`
+                      : ""
+                    }
+                  </div>
+                  <p class="text-sm font-bold truncate ${hasCover ? "text-white" : "text-slate-800 group-hover:text-blue-600"}" title="${safeNameAttr}">
+                    ${safeNameAttr}
+                  </p>
+                  <p class="text-[11px] tabular-nums mt-0.5 ${hasCover ? "text-slate-200" : "text-slate-400"}">
+                    ${f.updatedAt}
+                  </p>
+                </div>
+              </div>
+            `;
+          }).join("");
+        } else {
+          // TAMPILAN FOLDER BIASA DI DALAM LOKER (Untuk separasi direktori)
+          folderContainer.className = viewMode === "grid"
+            ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+            : "bg-white border border-slate-200/90 rounded-2xl divide-y divide-slate-100 overflow-hidden";
+
+          folderContainer.innerHTML = folders.map(f => {
+            const safeNameAttr = escapeHtml(f.name);
+            const safeJsName = escapeJsString(f.name);
+
+            if (viewMode === "grid") {
+              return `
+                <div
+                  onclick="loadDirectory('${f.id}', '${safeJsName}')"
+                  class="group aspect-square bg-white rounded-2xl border border-slate-200/90 hover:border-blue-400 hover:shadow-md p-4 flex flex-col justify-between transition cursor-pointer select-none"
+                >
+                  <div class="flex items-start justify-between gap-1">
+                    <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center group-hover:scale-105 transition">
+                      <svg class="w-6 h-6 fill-current" viewBox="0 0 20 20">
+                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                      </svg>
+                    </div>
+
+                    <div onclick="event.stopPropagation()" class="flex items-center gap-1 opacity-85 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                      <button
+                        onclick="renameItem('folder', '${f.id}', '${safeJsName}')"
+                        class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                        title="Rename Folder"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      </button>
+                      <button
+                        onclick="deleteItem('folder', '${f.id}', '${safeJsName}')"
+                        class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                        title="Hapus Folder"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="mt-auto">
+                    <p class="text-sm font-semibold text-slate-800 truncate group-hover:text-blue-600" title="${safeNameAttr}">${safeNameAttr}</p>
+                    <p class="text-[11px] text-slate-400 tabular-nums mt-0.5">${f.updatedAt}</p>
+                  </div>
+                </div>
+              `;
+            }
+
+            return `
+              <div
+                onclick="loadDirectory('${f.id}', '${safeJsName}')"
+                class="px-4 py-3 hover:bg-slate-50/90 flex items-center justify-between gap-4 transition cursor-pointer"
+              >
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <svg class="w-5 h-5 text-amber-500 fill-current shrink-0" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
+                  <span class="text-sm font-medium text-slate-800 truncate hover:text-blue-600">${safeNameAttr}</span>
+                </div>
+                <div onclick="event.stopPropagation()" class="flex items-center gap-3 shrink-0">
+                  <span class="hidden sm:inline text-xs text-slate-400 tabular-nums">${f.updatedAt}</span>
+                  <button onclick="renameItem('folder', '${f.id}', '${safeJsName}')" class="text-xs font-medium text-slate-500 hover:text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-50 transition cursor-pointer">Rename</button>
+                  <button onclick="deleteItem('folder', '${f.id}', '${safeJsName}')" class="text-xs font-medium text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer">Hapus</button>
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+      } else {
+        folderSection.classList.add("hidden");
+      }
+
+      // Render Files (hanya di dalam loker/subfolder)
+      if (!isRootView && files.length > 0) {
+        fileSection.classList.remove("hidden");
+        document.getElementById("fileCountBadge").textContent = `${files.length} file`;
+
+        fileContainer.className = viewMode === "grid"
+          ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+          : "bg-white border border-slate-200/90 rounded-2xl divide-y divide-slate-100 overflow-hidden";
+
+        fileContainer.innerHTML = files.map(file => {
+          const safeNameAttr = escapeHtml(file.name);
+          const safeJsName = escapeJsString(file.name);
+          const isImage = file.mimeType && file.mimeType.startsWith("image/");
+
+          if (viewMode === "grid") {
+            return `
+              <div class="group aspect-square bg-white rounded-2xl border border-slate-200/90 hover:border-blue-400 hover:shadow-md overflow-hidden flex flex-col transition">
+                <div class="relative flex-1 bg-slate-100 overflow-hidden flex items-center justify-center">
+                  ${isImage
+                    ? `<img src="${file.thumbnailUrl}" alt="${safeNameAttr}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                       <div class="hidden flex-col items-center justify-center text-blue-600">
+                         <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                       </div>`
+                    : `<div class="flex flex-col items-center justify-center gap-1.5 px-2 text-center">
+                         <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                         </div>
+                         <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 truncate max-w-full">${(file.mimeType || "FILE").split("/").pop()}</span>
+                       </div>`
+                  }
+
+                  <!-- Quick Rename & Delete -->
+                  <div class="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-xs rounded-xl p-1 shadow-2xs opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                    <button
+                      onclick="renameItem('file', '${file.id}', '${safeJsName}')"
+                      class="p-1 text-slate-600 hover:text-blue-600 rounded-lg transition cursor-pointer"
+                      title="Rename"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
+                    <button
+                      onclick="deleteItem('file', '${file.id}', '${safeJsName}')"
+                      class="p-1 text-slate-600 hover:text-rose-600 rounded-lg transition cursor-pointer"
+                      title="Hapus"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Footer Metadata & Actions -->
+                <div class="p-3 bg-white border-t border-slate-100">
+                  <p class="text-xs font-semibold text-slate-800 truncate" title="${safeNameAttr}">${safeNameAttr}</p>
+                  <p class="text-[10px] text-slate-400 tabular-nums mt-0.5">${file.size} • ${file.updatedAt}</p>
+                  <div class="flex items-center gap-1.5 mt-2">
+                    <a
+                      href="${file.viewUrl}"
+                      target="_blank"
+                      class="flex-1 text-center py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 rounded-lg transition"
+                    >
+                      Lihat
+                    </a>
+                    <button
+                      onclick="downloadWithProgress('${file.downloadUrl}', '${safeJsName}')"
+                      class="flex-1 text-center py-1 text-[11px] font-semibold text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 rounded-lg transition cursor-pointer"
+                    >
+                      Download
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="px-4 py-3 hover:bg-slate-50/90 flex items-center justify-between gap-4 transition">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                ${isImage
+                  ? `<img src="${file.thumbnailUrl}" alt="${safeNameAttr}" loading="lazy" class="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0" />`
+                  : `<div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                     </div>`
+                }
+                <span class="text-sm font-medium text-slate-800 truncate" title="${safeNameAttr}">${safeNameAttr}</span>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <span class="hidden md:inline text-xs text-slate-400 tabular-nums">${file.size}</span>
+                <span class="hidden sm:inline text-xs text-slate-400 tabular-nums">${file.updatedAt}</span>
+                <a href="${file.viewUrl}" target="_blank" class="text-xs font-medium text-slate-600 hover:text-blue-600 px-1.5 py-1">Lihat</a>
+                <button onclick="downloadWithProgress('${file.downloadUrl}', '${safeJsName}')" class="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-lg transition cursor-pointer">Download</button>
+                <button onclick="renameItem('file', '${file.id}', '${safeJsName}')" class="text-xs font-medium text-slate-500 hover:text-blue-600 px-1.5 py-1 cursor-pointer">Rename</button>
+                <button onclick="deleteItem('file', '${file.id}', '${safeJsName}')" class="text-xs font-medium text-slate-500 hover:text-rose-600 px-1.5 py-1 cursor-pointer">Hapus</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } else {
+        fileSection.classList.add("hidden");
+      }
+    }
+
+    // Mengatur, mengubah, atau menghilangkan kunci sandi loker
+    async function manageLockerLock(lockerId, lockerName, isCurrentlyLocked) {
+      if (!isCurrentlyLocked) {
+        const newPass = await showCustomDialog({
+          title: `Kunci Loker "${lockerName}"`,
+          message: "Buat sandi untuk mengunci loker ini agar tidak sembarang dibuka.",
+          showInput: true,
+          inputType: "password",
+          inputPlaceholder: "Masukkan sandi baru...",
+          confirmText: "Kunci Loker"
+        });
+        if (!newPass || !String(newPass).trim()) return;
+
+        await sendLockUpdate(lockerId, "", String(newPass).trim());
+        return;
+      }
+
+      // Jika sudah terkunci: wajib masukkan sandi sebelumnya ATAU kode rahasia
+      const resDialog = await showCustomDialog({
+        title: `Pengaturan Kunci "${lockerName}"`,
+        message: "Masukkan sandi loker sebelumnya atau kode rahasia untuk mengubah maupun menghilangkan kunci.",
+        showInput: true,
+        inputType: "password",
+        inputPlaceholder: "Sandi sebelumnya / kode rahasia...",
+        showSecondInput: true,
+        secondLabel: "Sandi Baru (kosongkan jika hanya ingin menghilangkan kunci)",
+        secondPlaceholder: "Ketik sandi baru...",
+        extraActionText: "Hilangkan Kunci Loker (Gunakan sandi/kode di atas)",
+        confirmText: "Ubah Sandi"
+      });
+
+      if (!resDialog) return;
+      const authSecret = String(resDialog.primary || "").trim();
+      if (!authSecret) {
+        showToast("Masukkan sandi sebelumnya atau kode rahasia terlebih dahulu.");
+        return;
+      }
+
+      const nextPassword = resDialog.removeLock ? "" : String(resDialog.secondary || "").trim();
+      if (!resDialog.removeLock && !nextPassword) {
+        showToast("Isi sandi baru atau klik tombol 'Hilangkan Kunci Loker'.");
+        return;
+      }
+
+      await sendLockUpdate(lockerId, authSecret, nextPassword);
+    }
+
+    async function sendLockUpdate(lockerId, authSecret, newPassword) {
+      setLoading(true, "Memperbarui keamanan loker...");
+      try {
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "updateLockerLock",
+            lockerId,
+            authSecret,
+            newPassword
+          })
+        });
+        const result = await res.json();
+        if (result.status !== "success") throw new Error(result.message);
+
+        if (newPassword) {
+          unlockedPasswords[lockerId] = newPassword;
+        } else {
+          delete unlockedPasswords[lockerId];
+        }
+
+        showToast(result.message);
+        loadDirectory(currentFolderId, null, true);
+      } catch (err) {
+        showToast(err.message);
+        setLoading(false);
+      }
+    }
+
+    // Upload Foto Profil Loker
+    function triggerCoverUpload(lockerId, lockerName) {
+      pendingCoverLockerId = lockerId;
+      pendingCoverLockerName = lockerName;
+      const input = document.getElementById("coverPhotoInput");
+      input.value = "";
+      input.click();
+    }
+
+    async function handleCoverPhotoSelected(event) {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file || !pendingCoverLockerId) return;
+
+      if (!file.type.startsWith("image/")) {
+        showToast("Pilih file gambar (JPG/PNG/WebP) untuk foto profil loker.");
+        return;
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+        showToast("Ukuran gambar maksimal 15 MB.");
+        return;
+      }
+
+      const itemId = createTransferItem("Foto Loker", pendingCoverLockerName, "Mengunggah foto profil...", 25, "active");
+
+      try {
+        const base64Data = await readFileAsBase64(file, (pct) => {
+          updateTransferItem(itemId, Math.min(55, 25 + Math.round(pct * 0.3)), "Memproses gambar...", "active");
+        });
+
+        updateTransferItem(itemId, 75, "Menyimpan ke Google Drive...", "active");
+
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "setLockerCover",
+            lockerId: pendingCoverLockerId,
+            mimeType: file.type,
+            base64Data: base64Data
+          })
+        });
+        const result = await res.json();
+        if (result.status !== "success") throw new Error(result.message);
+
+        updateTransferItem(itemId, 100, "Foto profil loker terpasang", "done");
+        showToast(`Foto profil loker "${pendingCoverLockerName}" diperbarui!`);
+        loadDirectory(currentFolderId, null, true);
+      } catch (err) {
+        updateTransferItem(itemId, 100, "Gagal: " + err.message, "error");
+        showToast("Gagal mengunggah foto profil: " + err.message);
+      } finally {
+        pendingCoverLockerId = null;
+        pendingCoverLockerName = "";
+      }
+    }
+
+    function setupDragAndDrop() {
+      const overlay = document.getElementById("dropOverlay");
+      let dragCounter = 0;
+
+      window.addEventListener("dragenter", (e) => {
+        if (isRootView) return;
+        e.preventDefault();
+        dragCounter++;
+        overlay.classList.remove("hidden");
+      });
+
+      window.addEventListener("dragover", (e) => {
+        if (!isRootView) e.preventDefault();
+      });
+
+      window.addEventListener("dragleave", () => {
+        if (isRootView) return;
+        dragCounter = Math.max(0, dragCounter - 1);
+        if (dragCounter === 0) overlay.classList.add("hidden");
+      });
+
+      window.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        overlay.classList.add("hidden");
+
+        if (isRootView) {
+          showToast("Buka salah satu loker terlebih dahulu untuk upload file.");
+          return;
+        }
+
+        const droppedFiles = Array.from(e.dataTransfer?.files || []);
+        if (droppedFiles.length > 0) {
+          await uploadMultipleFiles(droppedFiles);
+        }
+      });
+    }
+
+    async function handleFileInput(event) {
+      if (isRootView) {
+        event.target.value = "";
+        showToast("Tidak bisa upload file di halaman depan loker.");
+        return;
+      }
+      const files = Array.from(event.target.files || []);
+      event.target.value = "";
+      if (files.length > 0) {
+        await uploadMultipleFiles(files);
+      }
+    }
+
+    async function uploadMultipleFiles(files) {
+      let anySuccess = false;
+
+      for (const file of files) {
+        if (file.size > 35 * 1024 * 1024) {
+          const id = createTransferItem("Upload", file.name, "Gagal (>35 MB)", 100, "error");
+          updateTransferItem(id, 100, "Gagal: ukuran > 35 MB", "error");
+          continue;
+        }
+
+        const itemId = createTransferItem("Upload", file.name, "Membaca file...", 15, "active");
+
+        try {
+          const base64Data = await readFileAsBase64(file, (pct) => {
+            updateTransferItem(itemId, Math.min(45, 15 + Math.round(pct * 0.3)), "Menyiapkan data...", "active");
+          });
+
+          updateTransferItem(itemId, 65, "Mengirim ke Google Drive...", "active");
+
+          const response = await fetch(GAS_WEB_APP_URL, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "upload",
+              folderId: currentFolderId,
+              fileName: file.name,
+              mimeType: file.type || "application/octet-stream",
+              base64Data: base64Data
+            })
+          });
+
+          const result = await response.json();
+          if (result.status !== "success") throw new Error(result.message);
+
+          updateTransferItem(itemId, 100, "Selesai terupload", "done");
+          anySuccess = true;
+        } catch (err) {
+          updateTransferItem(itemId, 100, "Gagal: " + err.message, "error");
+        }
+      }
+
+      if (anySuccess) {
+        showToast("Upload selesai!");
+        loadDirectory(currentFolderId, null, true);
+      }
+    }
+
+    function readFileAsBase64(file, onProgress) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onprogress = (e) => {
+          if (e.lengthComputable && onProgress) {
+            onProgress((e.loaded / e.total) * 100);
+          }
+        };
+        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.onerror = () => reject(new Error("Gagal membaca file lokal"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function downloadWithProgress(downloadUrl, fileName) {
+      const itemId = createTransferItem("Download", fileName, "Memulai unduhan...", 10, "active");
+
+      try {
+        const res = await fetch(downloadUrl);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+
+        const contentLength = Number(res.headers.get("Content-Length") || 0);
+        if (!res.body || !contentLength) {
+          updateTransferItem(itemId, 60, "Mengunduh dari Google Drive...", "active");
+          const blob = await res.blob();
+          triggerBlobDownload(blob, fileName);
+          updateTransferItem(itemId, 100, "Selesai diunduh", "done");
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const chunks = [];
+        let received = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          const pct = Math.min(99, Math.round((received / contentLength) * 100));
+          updateTransferItem(itemId, pct, `Mengunduh (${pct}%)...`, "active");
+        }
+
+        const blob = new Blob(chunks);
+        triggerBlobDownload(blob, fileName);
+        updateTransferItem(itemId, 100, "Selesai diunduh", "done");
+      } catch (err) {
+        updateTransferItem(itemId, 100, "Membuka unduhan langsung...", "done");
+        window.open(downloadUrl, "_blank");
+      }
+    }
+
+    function triggerBlobDownload(blob, fileName) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    async function openNewFolderModal() {
+      const folderName = await showCustomDialog({
+        title: isRootView ? "Buat Loker Baru" : "Buat Folder Separasi",
+        message: isRootView
+          ? "Loker baru akan muncul sebagai kotak di halaman depan."
+          : "Folder ini digunakan untuk mengelompokkan file di dalam loker.",
+        showInput: true,
+        confirmText: "Buat"
+      });
+      if (!folderName || !folderName.trim()) return;
+
+      setLoading(true, `Membuat "${folderName.trim()}"...`);
+      try {
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "createFolder",
+            folderId: currentFolderId,
+            folderName: folderName.trim()
+          })
+        });
+        const result = await res.json();
+        if (result.status !== "success") throw new Error(result.message);
+        showToast("Berhasil dibuat!");
+        loadDirectory(currentFolderId, null, true);
+      } catch (err) {
+        showToast("Gagal membuat: " + err.message);
+        setLoading(false);
+      }
+    }
+
+    async function renameItem(itemType, itemId, oldName) {
+      const newName = await showCustomDialog({
+        title: `Ganti Nama ${itemType === "folder" ? (isRootView ? "Loker" : "Folder") : "File"}`,
+        message: "Masukkan nama baru untuk item ini di Google Drive.",
+        showInput: true,
+        defaultValue: oldName,
+        confirmText: "Simpan"
+      });
+      if (!newName || !newName.trim() || newName.trim() === oldName) return;
+
+      setLoading(true, "Menyimpan nama baru...");
+      try {
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "rename",
+            itemType,
+            itemId,
+            newName: newName.trim()
+          })
+        });
+        const result = await res.json();
+        if (result.status !== "success") throw new Error(result.message);
+        showToast("Nama berhasil diubah");
+        loadDirectory(currentFolderId, null, true);
+      } catch (err) {
+        showToast("Gagal rename: " + err.message);
+        setLoading(false);
+      }
+    }
+
+    async function deleteItem(itemType, itemId, name) {
+      const ok = await showCustomDialog({
+        title: `Hapus "${name}"?`,
+        message: "Item ini akan dipindahkan ke folder khusus _RecycleBin di Google Drive (tidak langsung dihapus permanen).",
+        showInput: false,
+        confirmText: "Pindahkan ke Recycle Bin",
+        isDanger: true
+      });
+      if (!ok) return;
+
+      setLoading(true, `Memindahkan "${name}" ke _RecycleBin...`);
+      try {
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "delete",
+            itemType,
+            itemId
+          })
+        });
+        const result = await res.json();
+        if (result.status !== "success") throw new Error(result.message);
+        showToast("Dipindahkan ke folder _RecycleBin di Google Drive");
+        loadDirectory(currentFolderId, null, true);
+      } catch (err) {
+        showToast("Gagal memindahkan: " + err.message);
+        setLoading(false);
+      }
+    }
+
+    function createTransferItem(type, name, statusText, pct, state) {
+      const panel = document.getElementById("transferPanel");
+      const list = document.getElementById("transferList");
+      panel.classList.remove("hidden");
+
+      const id = "tx_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+      const row = document.createElement("div");
+      row.id = id;
+      row.className = "p-2.5 rounded-xl bg-slate-50/80 space-y-1.5";
+      row.innerHTML = `
+        <div class="flex items-center justify-between gap-2 text-xs">
+          <span class="font-semibold text-slate-800 truncate">[${type}] ${escapeHtml(name)}</span>
+          <span class="text-[11px] font-semibold tabular-nums tx-pct text-blue-600">${pct}%</span>
+        </div>
+        <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+          <div class="tx-bar h-full bg-blue-600 rounded-full transition-all duration-200" style="width: ${pct}%"></div>
+        </div>
+        <p class="tx-status text-[11px] text-slate-500 truncate">${escapeHtml(statusText)}</p>
+      `;
+      list.prepend(row);
+      return id;
+    }
+
+    function updateTransferItem(id, pct, statusText, state) {
+      const row = document.getElementById(id);
+      if (!row) return;
+      const pctEl = row.querySelector(".tx-pct");
+      const barEl = row.querySelector(".tx-bar");
+      const statusEl = row.querySelector(".tx-status");
+
+      pctEl.textContent = `${pct}%`;
+      barEl.style.width = `${pct}%`;
+      statusEl.textContent = statusText;
+
+      if (state === "done") {
+        barEl.className = "tx-bar h-full bg-emerald-500 rounded-full transition-all duration-200";
+        pctEl.className = "tx-pct text-[11px] font-semibold tabular-nums text-emerald-600";
+      } else if (state === "error") {
+        barEl.className = "tx-bar h-full bg-rose-500 rounded-full transition-all duration-200";
+        pctEl.className = "tx-pct text-[11px] font-semibold tabular-nums text-rose-600";
+      }
+    }
+
+    function toggleTransferBody() {
+      document.getElementById("transferList").classList.toggle("hidden");
+    }
+
+    function closeTransferPanel() {
+      document.getElementById("transferPanel").classList.add("hidden");
+      document.getElementById("transferList").innerHTML = "";
+    }
+
+    function setLoading(isLoading, text = "") {
+      const loader = document.getElementById("loader");
+      const content = document.getElementById("contentArea");
+      const empty = document.getElementById("emptyState");
+      document.getElementById("loaderText").textContent = text;
+
+      if (isLoading) {
+        loader.classList.remove("hidden");
+        content.classList.add("hidden");
+        empty.classList.add("hidden");
+      } else {
+        loader.classList.add("hidden");
+        content.classList.remove("hidden");
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.remove("translate-y-24", "opacity-0");
+      setTimeout(() => {
+        toast.classList.add("translate-y-24", "opacity-0");
+      }, 3200);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function escapeJsString(str) {
+      return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    }
+  </script>
+</body>
+</html>
